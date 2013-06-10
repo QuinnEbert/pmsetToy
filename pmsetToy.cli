@@ -1,0 +1,52 @@
+#!/usr/bin/php
+<?php
+function check_os() {
+	$uname_A = trim(`uname -a`);
+	/* 10.8.4 => */ if (strstr(strstr($uname_A,'12.4.0: '),'x86_64')) return 'Mac OS X 10.8.4 64-bit';
+	return false;
+}
+function bIgnored($keyName) {
+	if ($keyName == 'standby') return true;
+	if ($keyName == 'powerbutton') return true;
+	if ($keyName == 'hibernatefile') return true;
+	if ($keyName == 'autopoweroffdelay') return true;
+	if ($keyName == 'hibernatemode') return true;
+	if ($keyName == 'autopoweroff') return true;
+	if ($keyName == 'standbydelay') return true;
+	return false;
+}
+$osCheck = check_os();
+if (   $osCheck ) $osCheck .= ' (supported)';
+if ( ! $osCheck ) {
+	if (isset($argv[1])) {
+		$arg = strtolower(trim($argv[1]));
+		if ($arg == '-f' || $arg == '--force')
+			$osCheck = 'Darwin Kernel version '.trim(`uname -r`).' for architecture '.trim(`uname -m`).' (unsupported)';
+	}
+}
+if ($osCheck) {
+	echo(rtrim(wordwrap("OS Detected: {$osCheck}\n\nWARNING: ".ltrim($argv[0],'./')." isn't yet wise to setting settings for only your current power source, be advised, restored settings using the commands provided will apply to all power sources!\n\n",80))."\n\n");
+	echo("Restore settings with commands:\n\n");
+	$MyPMSet = explode("\n",trim(`pmset -g`));
+	$toIndex = 0;
+	foreach ($MyPMSet as $k => $v) {
+		$x = trim($v);
+		$y = (strlen($x)-1);
+		if ($x[$y]!==':'&&strtolower($x[0])==$x[0]) {
+			if (strstr($x,' (')!==false)
+				$x = str_replace(strstr($x,' ('),'',$x);
+			$z = str_replace("\t",' ',$x);
+			while (strstr($z,'  ')) { $z = str_replace('  ',' ',$z); }
+			$TempSet = explode(' ',$z,2);
+			if ( ! bIgnored(strtolower($TempSet[0])) ) {
+				$RealSet[$toIndex] = $TempSet;
+				if (count($RealSet[$toIndex])==2) echo("sudo pmset -a {$RealSet[$toIndex][0]} {$RealSet[$toIndex][1]}\n");
+				$toIndex++;
+			}
+		}
+	}
+	// ...
+	echo("\n");
+} else {
+	die(rtrim(wordwrap("FATAL: OS not supported.  Try --force if you don't mind taking your life into your own hands...",80))."\n");
+}
